@@ -1,5 +1,6 @@
 {
   "name": "lantern-react",
+  "version": "0.2.0-beta",
   "private": true,
   "workspaces": [
     "server",

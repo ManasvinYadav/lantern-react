@@ -11,14 +11,7 @@
 // like one family of UI.
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  ACCENT_PRESETS,
-  applyAccent,
-  applyTheme,
-  getStoredAccent,
-  getStoredTheme,
-} from "../theme.ts";
-import type { ThemeMode } from "../theme.ts";
+import { ACCENT_PRESETS, applyAccent, getStoredAccent } from "../theme.ts";
 import { getBackupUrl } from "../api/backup.ts";
 import { AccountSecurityTab } from "./settings/AccountSecurityTab.tsx";
 import { AlertsWebhooksTab } from "./settings/AlertsWebhooksTab.tsx";
@@ -75,29 +68,18 @@ const ghostBtnClass =
   "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors duration-[var(--duration-fast)] ease-out hover:bg-panel-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 // ---------------------------------------------------------------------------
-// General tab — theme picker + accent picker + backup download. Built
-// directly in this file per the task (the other three tabs are separate
-// components under src/components/settings/).
+// General tab — accent picker + backup download. Built directly in this
+// file per the task (the other three tabs are separate components under
+// src/components/settings/). No theme picker: midnight is the app's only
+// look, there's nothing to switch between.
 // ---------------------------------------------------------------------------
 
-const THEME_OPTIONS: { value: ThemeMode; label: string; swatch: string }[] = [
-  { value: "dark", label: "Dark", swatch: "#05070d" },
-  { value: "midnight", label: "Midnight", swatch: "#000000" },
-  { value: "light", label: "Light", swatch: "#eef1f7" },
-];
-
 function GeneralTab() {
-  // Seeded from localStorage (theme.ts) once on mount — applyTheme/
-  // applyAccent already persist on every call, so this local state only
-  // needs to track the initial value plus whatever the user picks in this
-  // session; it never needs to re-read storage after mount.
-  const [theme, setTheme] = useState<ThemeMode>(getStoredTheme);
+  // Seeded from localStorage (theme.ts) once on mount — applyAccent already
+  // persists on every call, so this local state only needs to track the
+  // initial value plus whatever the user picks in this session; it never
+  // needs to re-read storage after mount.
   const [accent, setAccent] = useState<string>(getStoredAccent);
-
-  function handleThemeSelect(mode: ThemeMode) {
-    applyTheme(mode);
-    setTheme(mode);
-  }
 
   function handleAccentSelect(hex: string) {
     applyAccent(hex);
@@ -106,32 +88,6 @@ function GeneralTab() {
 
   return (
     <div className="space-y-6">
-      <section>
-        <SectionHeading>Theme</SectionHeading>
-        <div className="grid grid-cols-3 gap-2">
-          {THEME_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handleThemeSelect(opt.value)}
-              aria-pressed={theme === opt.value}
-              className={`flex flex-col items-center gap-2 rounded-md border px-3 py-3 text-xs font-medium transition-colors duration-[var(--duration-fast)] ease-out ${
-                theme === opt.value
-                  ? "border-accent bg-accent-bg text-text-primary"
-                  : "border-border text-text-secondary hover:bg-panel-hover hover:text-text-primary"
-              }`}
-            >
-              <span
-                className="h-6 w-6 rounded-full border border-border-focus/40"
-                style={{ backgroundColor: opt.swatch }}
-                aria-hidden="true"
-              />
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
       <section>
         <SectionHeading>Accent color</SectionHeading>
         <div className="flex flex-wrap gap-2.5">

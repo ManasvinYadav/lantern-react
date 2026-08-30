@@ -10,22 +10,7 @@
 // formulas — MetricsRow and OutageBanner both call it so nobody downstream
 // recomputes these differently. See its doc comment for exact formulas.
 import type { ReactNode } from "react";
-import type { HeartbeatBeat, ServiceSummary } from "../api/types";
-
-// ---------------------------------------------------------------------------
-// api/types.ts (stable, out of scope to edit here) predates two backend
-// fields that are already live: server/src/services/summary.ts's
-// ServiceSummary.source and server/src/metrics/compute.ts's
-// HeartbeatBeat.latency_ms (server/src/routes/services.ts:23 confirms the
-// same field on the separate /history endpoint). Only latency_ms is needed
-// here, read through a local intersection type instead of widening the
-// shared client contract.
-// ---------------------------------------------------------------------------
-type BeatWithLatency = HeartbeatBeat & { latency_ms?: number };
-
-function beatLatencyMs(beat: HeartbeatBeat): number {
-  return (beat as BeatWithLatency).latency_ms ?? 0;
-}
+import type { ServiceSummary } from "../api/types";
 
 export interface ServiceMetrics {
   /** Mean of services[].uptime_percent. null when services is empty (never
@@ -56,7 +41,7 @@ export function computeServiceMetrics(services: ServiceSummary[]): ServiceMetric
   for (const service of services) {
     for (const beat of service.history) {
       if (beat.status === "empty") continue;
-      const latency = beatLatencyMs(beat);
+      const latency = beat.latency_ms;
       if (latency > 0) {
         latencySum += latency;
         latencyCount += 1;

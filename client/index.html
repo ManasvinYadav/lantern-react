@@ -7,15 +7,12 @@
     <title>Lantern</title>
     <script>
       // Runs before the React bundle loads so the page never paints with the
-      // wrong theme/accent and then snaps to the stored one. Kept in sync
-      // with theme.ts's applyTheme/applyAccent by hand — this can't import
-      // that module, it has to run synchronously pre-bundle.
+      // default accent and then snaps to the stored one. Kept in sync with
+      // theme.ts's applyAccent by hand — this can't import that module, it
+      // has to run synchronously pre-bundle. Midnight is the app's only
+      // look, so there's no theme branch here anymore, just the accent.
       (function () {
         try {
-          var theme = localStorage.getItem('lantern_theme');
-          if (theme !== 'midnight' && theme !== 'light') theme = 'dark';
-          document.documentElement.setAttribute('data-theme', theme);
-
           var accent = localStorage.getItem('lantern_accent') || '#10b981';
           var style = document.documentElement.style;
           style.setProperty('--color-accent', accent);
@@ -26,9 +23,8 @@
           style.setProperty('--color-up-bg', accent + '20');
         } catch (e) {
           // localStorage can throw (private browsing, disabled storage) —
-          // fall back to the dark theme + default accent rather than leaving
-          // the page unstyled.
-          document.documentElement.setAttribute('data-theme', 'dark');
+          // fall back to the default accent rather than leaving the page
+          // unstyled.
         }
       })();
     </script>

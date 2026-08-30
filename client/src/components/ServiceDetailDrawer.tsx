@@ -689,9 +689,13 @@ export function ServiceDetailDrawer({ serviceName, onClose }: ServiceDetailDrawe
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-text-primary">{maintenance?.enabled ? "Enabled" : "Disabled"}</p>
-                {maintenance?.updated_at && (
-                  <p className="text-xs text-text-muted">Updated {formatRelative(maintenance.updated_at)}</p>
-                )}
+                {/* Always rendered (invisible when there's no timestamp yet) so
+                    toggling maintenance never changes this row's height —
+                    a real height change here pushes the note field and every
+                    section below it down/up on every toggle. */}
+                <p className={`text-xs text-text-muted ${maintenance?.updated_at ? "" : "invisible"}`}>
+                  Updated {maintenance?.updated_at ? formatRelative(maintenance.updated_at) : "—"}
+                </p>
               </div>
               <button
                 type="button"
@@ -700,7 +704,7 @@ export function ServiceDetailDrawer({ serviceName, onClose }: ServiceDetailDrawe
                 onClick={() => void handleToggleMaintenance()}
                 disabled={!maintenance || maintenanceToggling}
                 className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-[var(--duration-fast)] ease-out disabled:cursor-not-allowed disabled:opacity-50 ${
-                  maintenance?.enabled ? "border-maint/40 bg-maint" : "border-border bg-panel-bg"
+                  maintenance?.enabled ? "border-maint/40 bg-maint" : "border-[#4a4d57] bg-[#3a3d46]"
                 }`}
               >
                 <span

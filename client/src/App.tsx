@@ -24,6 +24,7 @@ import { CommandPalette } from "./components/CommandPalette.tsx";
 import { DiagnosticsDrawer } from "./components/DiagnosticsDrawer.tsx";
 import { SettingsDrawer } from "./components/SettingsDrawer.tsx";
 import { AuthProvider, useAuth } from "./hooks/useAuth.tsx";
+import { THEME_CHANGE_EVENT, auroraStopsForAccent, getStoredAccent } from "./theme.ts";
 import { useLanternRealtime } from "./hooks/useLanternRealtime.ts";
 import type { LanternConnectionStatus } from "./hooks/useLanternRealtime.ts";
 import type { ServiceSummary } from "./api/types.ts";
@@ -120,17 +121,26 @@ function IconLogout({ className = "h-4 w-4" }: IconProps) {
 // ---------------------------------------------------------------------------
 
 function AppBackground() {
-  // Read once at mount: this shell doesn't own theme switching (that's a
-  // future Settings-drawer phase) — this just matches whatever theme.ts /
-  // index.html's pre-React bootstrap script already applied, instead of
-  // hardcoding dark. Colors echo --gradient-bg's own accent/blue/violet
-  // stops (index.css) so the animated layer and the static gradient
-  // fallback it sits in front of read as one consistent background.
-  const [lightMode] = useState(() => document.documentElement.getAttribute("data-theme") === "light");
+  // Seeded from whatever theme.ts / index.html's pre-React bootstrap script
+  // already applied, then kept live via THEME_CHANGE_EVENT — applyAccent
+  // (theme.ts) fires it on every Settings change, since this component is
+  // mounted once as a stable sibling (never remounted when the Settings
+  // drawer opens) and so can't just re-read localStorage on render.
+  // colorStops is derived from the live accent (auroraStopsForAccent) so
+  // the animated background always reads as "this accent's aurora" instead
+  // of a fixed green/blue/violet regardless of what's picked. Midnight is
+  // the app's only look, so there's no lightMode to track here anymore.
+  const [colorStops, setColorStops] = useState<[string, string, string]>(() => auroraStopsForAccent(getStoredAccent()));
+
+  useEffect(() => {
+    const sync = () => setColorStops(auroraStopsForAccent(getStoredAccent()));
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
+  }, []);
 
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-      <Aurora colorStops={["#10b981", "#3b82f6", "#8b5cf6"]} amplitude={0.9} blend={0.6} speed={0.6} lightMode={lightMode} />
+      <Aurora colorStops={colorStops} amplitude={0.85} blend={0.65} speed={0.5} />
     </div>
   );
 }
@@ -420,7 +430,7 @@ function DashboardShell({ status }: { status: DashboardStatus }) {
         </div>
       </header>
 
-      <main className="mx-3 mb-6 mt-4 flex flex-1 flex-col gap-4 sm:mx-4">
+      <main className="mx-3 mb-6 mt-8 flex flex-1 flex-col gap-4 sm:mx-4 sm:mt-9">
         <MetricsRow services={services} />
         <OutageBanner services={services} />
 

@@ -32,9 +32,23 @@
      --gradient-bg token below (a plain custom property, not a --color-*
      one), layered onto `body` as background-image alongside --color-bg as
      the solid background-color fallback. See the body rule in @layer base. */
-  --color-bg: #05070d;
-  --color-panel-bg: rgba(255, 255, 255, 0.06);
-  --color-panel-hover: rgba(255, 255, 255, 0.1);
+  /* Midnight is the only look the app has — not a switchable default, an
+     ultra-deep-black glass with no separate "dark" tier above it. */
+  --color-bg: #000000;
+  /* A dark, PARTIALLY translucent base — not a faint 6% tint (washes out to
+     whatever's behind it) and not a near-opaque 85% fill either (reads as
+     flat black chrome, not glass). The Apple visionOS/macOS material trick
+     this borrows: opacity alone never has to fight a bright backdrop pixel
+     — a strong backdrop-filter blur (see .glass below) spatially averages a
+     wide radius of the animated Aurora behind it first, so by the time this
+     tint sits on top there's no hotspot left to wash anything out. That
+     lets opacity stay low enough to actually read as translucent glass —
+     Aurora's color/light still visibly moves through every panel — while
+     text contrast stays stable regardless of what's animating underneath.
+     --color-panel-hover is a touch more opaque, not lighter — hover state
+     reads as "denser glass," matching how iOS materials react to press. */
+  --color-panel-bg: rgba(10, 11, 16, 0.58);
+  --color-panel-hover: rgba(14, 16, 22, 0.68);
   --color-border: rgba(255, 255, 255, 0.12);
   --color-border-focus: rgba(255, 255, 255, 0.28);
 
@@ -133,10 +147,9 @@
      background layer (a React Bits background component mounted behind the
      app), so this is deliberately a static gradient, not an animation. */
   --gradient-bg:
-    radial-gradient(ellipse 90% 55% at 15% -15%, var(--color-accent-glow), transparent 60%),
-    radial-gradient(ellipse 75% 55% at 105% 0%, rgba(56, 132, 255, 0.14), transparent 60%),
-    radial-gradient(ellipse 65% 60% at 50% 115%, rgba(139, 92, 246, 0.12), transparent 60%),
-    linear-gradient(165deg, #10131f 0%, #090b13 42%, #05070d 100%);
+    radial-gradient(ellipse 70% 50% at 20% -10%, color-mix(in srgb, var(--color-accent-glow) 55%, transparent), transparent 65%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, color-mix(in srgb, var(--color-accent-glow) 35%, rgba(139, 92, 246, 0.08)), transparent 65%),
+    linear-gradient(180deg, #050505 0%, #000000 60%);
 
   --bg: var(--color-bg);
   --panel-bg: var(--color-panel-bg);
@@ -175,74 +188,6 @@
   --duration-fast: 150ms;
   --duration-base: 250ms;
   --duration-slow: 400ms;
-}
-
-/* =============================================================================
-   Theme variants
-   Selected by theme.ts's applyTheme(), which sets data-theme on <html> and
-   persists the choice to localStorage — read back synchronously by the
-   inline bootstrap script in index.html before React mounts.
-   ========================================================================== */
-
-/* Midnight: ultra-deep-black glass — darker background/panels only, glass
-   panels read as barely-there frost floating in a near-void. Status colors,
-   accent, text, and border-focus are unchanged from the dark theme. */
-:root[data-theme="midnight"] {
-  --color-bg: #000000;
-  --gradient-bg:
-    radial-gradient(ellipse 70% 50% at 20% -10%, color-mix(in srgb, var(--color-accent-glow) 55%, transparent), transparent 65%),
-    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(139, 92, 246, 0.08), transparent 65%),
-    linear-gradient(180deg, #050505 0%, #000000 60%);
-  --color-panel-bg: rgba(255, 255, 255, 0.045);
-  --color-border: rgba(255, 255, 255, 0.1);
-}
-
-/* Light: frosted-white glass on light. Full palette swap, including every
-   status color. Light-mode status colors are distinct hex values tuned for
-   contrast on a light background, not derived from the dark palette — and
-   --color-accent is deliberately NOT overridden here (matches the legacy
-   stylesheet), so .btn.primary etc. keep showing the raw accent color in
-   light mode unless the user has picked a custom accent, while status dots
-   use the light-tuned --color-up. Border tokens flip polarity from "low-
-   opacity white" (dark/midnight) to "low-opacity black" — a light glass
-   edge is a soft dark hairline, not a bright one. */
-:root[data-theme="light"] {
-  --color-bg: #eef1f7;
-  --gradient-bg:
-    radial-gradient(ellipse 80% 55% at 15% -10%, color-mix(in srgb, var(--color-accent-glow) 70%, transparent), transparent 60%),
-    radial-gradient(ellipse 70% 55% at 105% 0%, rgba(59, 130, 246, 0.1), transparent 60%),
-    radial-gradient(ellipse 60% 60% at 50% 115%, rgba(236, 72, 153, 0.08), transparent 60%),
-    linear-gradient(165deg, #ffffff 0%, #eef2f9 45%, #e6ebf5 100%);
-  --color-panel-bg: rgba(255, 255, 255, 0.55);
-  --color-panel-hover: rgba(255, 255, 255, 0.72);
-  --color-border: rgba(15, 23, 42, 0.08);
-  --color-border-focus: rgba(15, 23, 42, 0.18);
-
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
-
-  --color-up: #059669;
-  --color-up-bg: rgba(5, 150, 105, 0.12);
-  --color-up-glow: rgba(5, 150, 105, 0.2);
-
-  --color-down: #e11d48;
-  --color-down-bg: rgba(225, 29, 72, 0.12);
-  --color-down-glow: rgba(225, 29, 72, 0.2);
-
-  --color-degraded: #d97706;
-  --color-degraded-bg: rgba(217, 119, 6, 0.12);
-  --color-degraded-glow: rgba(217, 119, 6, 0.2);
-
-  --color-maint: #7c3aed;
-  --color-maint-bg: rgba(124, 58, 237, 0.12);
-  --color-maint-glow: rgba(124, 58, 237, 0.2);
-
-  --color-unknown: #64748b;
-  --color-unknown-bg: rgba(100, 116, 139, 0.12);
-  --color-unknown-glow: rgba(100, 116, 139, 0.2);
-
-  color-scheme: light;
 }
 
 /* =============================================================================
@@ -334,31 +279,46 @@
    also need a `rounded-*` utility.
    ========================================================================== */
 @layer components {
+  /* Every surface gets an inset top sheen — a fixed, non-animated highlight
+     that reads as "glass catching light from above" on its own. Without this
+     a card sitting over a dark patch of the animated Aurora background has
+     nothing to refract and just looks like a flat black box; the sheen keeps
+     every panel visibly glassy independent of what's behind it. */
   .glass {
     background: var(--color-panel-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: var(--shadow-lg), 0 0 40px -12px var(--color-accent-glow);
+    -webkit-backdrop-filter: blur(40px) saturate(140%);
+    backdrop-filter: blur(40px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 0 60px -40px rgba(255, 255, 255, 0.06),
+      var(--shadow-lg),
+      0 0 40px -12px var(--color-accent-glow);
   }
 
   .glass-strong {
     background: var(--color-panel-hover);
     border: 1px solid var(--color-border-focus);
     border-radius: var(--radius-lg);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
-    backdrop-filter: blur(32px) saturate(180%);
-    box-shadow: var(--shadow-xl), 0 0 64px -8px var(--color-accent-glow);
+    -webkit-backdrop-filter: blur(56px) saturate(150%);
+    backdrop-filter: blur(56px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 80px -40px rgba(255, 255, 255, 0.08),
+      var(--shadow-xl),
+      0 0 64px -8px var(--color-accent-glow);
   }
 
   .glass-subtle {
     background: var(--color-panel-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
-    backdrop-filter: blur(10px) saturate(120%);
-    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: blur(28px) saturate(120%);
+    backdrop-filter: blur(28px) saturate(120%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      var(--shadow-sm);
   }
 }
 

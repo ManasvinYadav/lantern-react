@@ -69,7 +69,7 @@ export function LoginForm() {
             />
           </h1>
           <p className="mt-2 text-base text-text-secondary">
-            This dashboard is protected. The public status page stays open at /status.
+            This dashboard is protected. The public status page below stays open, no sign-in required.
           </p>
         </div>
 

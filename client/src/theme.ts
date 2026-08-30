@@ -1,14 +1,14 @@
 /**
- * Theme + accent-color runtime mechanism.
+ * Accent-color runtime mechanism.
  *
- * Persistence and DOM mutation logic only — no picker UI. A future Settings
- * component renders the swatches/buttons and calls these on click. Mirrors
- * the inline bootstrap script in index.html exactly (same localStorage keys,
- * same hex+alpha-suffix trick for -glow/-bg) so a choice made here survives
- * the next full page load without a flash of the old theme/accent.
+ * Midnight is the app's only look (index.css has no other theme variant to
+ * switch to) — this module only ever handles the accent color. Persistence
+ * and DOM mutation logic only — no picker UI; SettingsDrawer renders the
+ * swatches and calls applyAccent on click. Mirrors the inline bootstrap
+ * script in index.html exactly (same localStorage key, same hex+alpha-suffix
+ * trick for -glow/-bg) so a choice made here survives the next full page
+ * load without a flash of the previous accent.
  */
-
-export type ThemeMode = "dark" | "midnight" | "light";
 
 export const ACCENT_PRESETS = [
   "#10b981",
@@ -19,37 +19,19 @@ export const ACCENT_PRESETS = [
   "#06b6d4",
 ] as const;
 
-export const DEFAULT_THEME: ThemeMode = "dark";
 export const DEFAULT_ACCENT = "#10b981";
 
-const THEME_STORAGE_KEY = "lantern_theme";
 const ACCENT_STORAGE_KEY = "lantern_accent";
 
-function isThemeMode(value: string | null): value is ThemeMode {
-  return value === "dark" || value === "midnight" || value === "light";
-}
-
-/** Reads the persisted theme, falling back to the default when unset or invalid. */
-export function getStoredTheme(): ThemeMode {
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return isThemeMode(stored) ? stored : DEFAULT_THEME;
-}
+/** Fired on `window` after applyAccent commits a change, so any mounted-once
+ * consumer that can't re-read localStorage on every render (e.g. the
+ * AppBackground's Aurora colorStops) can still stay in sync without lifting
+ * accent into shared React state. */
+export const THEME_CHANGE_EVENT = "lantern:theme-change";
 
 /** Reads the persisted accent hex, falling back to the default when unset. */
 export function getStoredAccent(): string {
   return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? DEFAULT_ACCENT;
-}
-
-/**
- * Applies a theme mode to the document and persists it.
- * `data-theme` is set unconditionally, including for "dark" (the CSS has no
- * rule keyed on `[data-theme="dark"]` — it's just the attribute-free
- * default) — kept explicit to match the legacy bootstrap script exactly, so
- * reading the attribute back always tells you the resolved theme.
- */
-export function applyTheme(mode: ThemeMode): void {
-  document.documentElement.setAttribute("data-theme", mode);
-  window.localStorage.setItem(THEME_STORAGE_KEY, mode);
 }
 
 /**
@@ -74,4 +56,59 @@ export function applyAccent(hex: string): void {
   root.setProperty("--color-up-glow", `${hex}40`);
   root.setProperty("--color-up-bg", `${hex}20`);
   window.localStorage.setItem(ACCENT_STORAGE_KEY, hex);
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+}
+
+/**
+ * Derives Aurora's 3-stop colorStops array from a single accent hex, so the
+ * animated background always reads as "the chosen accent's aurora" instead
+ * of the accent picker only affecting flat UI chrome while the big animated
+ * backdrop stays a fixed green/blue/violet regardless of what's picked.
+ * Rotates the accent's hue by ±42° for the other two stops (an analogous
+ * triad) rather than repeating the same hex three times, which would render
+ * as a flat wash instead of a gradient sweep.
+ */
+export function auroraStopsForAccent(hex: string): [string, string, string] {
+  const [h, s, l] = hexToHsl(hex);
+  return [hslToHex(h, s, l), hslToHex((h + 42) % 360, s, l), hslToHex((h + 360 - 42) % 360, s, l)];
+}
+
+function hexToHsl(hex: string): [number, number, number] {
+  const r = Number.parseInt(hex.slice(1, 3), 16) / 255;
+  const g = Number.parseInt(hex.slice(3, 5), 16) / 255;
+  const b = Number.parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l * 100];
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  switch (max) {
+    case r:
+      h = (g - b) / d + (g < b ? 6 : 0);
+      break;
+    case g:
+      h = (b - r) / d + 2;
+      break;
+    default:
+      h = (r - g) / d + 4;
+  }
+  return [h * 60, s * 100, l * 100];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const sN = s / 100;
+  const lN = l / 100;
+  const c = (1 - Math.abs(2 * lN - 1)) * sN;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = lN - c / 2;
+  const [r0, g0, b0] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const toHex = (v: number) =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toHex(r0)}${toHex(g0)}${toHex(b0)}`;
 }

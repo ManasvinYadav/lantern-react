@@ -55,6 +55,7 @@ const CHANNEL_META: Record<WebhookChannel, { label: string; placeholder: string;
 };
 
 const EMPTY_DRAFTS: Record<WebhookChannel, string> = { discord: "", telegram: "", gotify: "", generic: "" };
+const ALL_HIDDEN: Record<WebhookChannel, boolean> = { discord: false, telegram: false, gotify: false, generic: false };
 
 function draftsFromConfig(cfg: WebhooksResponse): Record<WebhookChannel, string> {
   return {
@@ -62,6 +63,18 @@ function draftsFromConfig(cfg: WebhooksResponse): Record<WebhookChannel, string>
     telegram: cfg.telegram?.url ?? "",
     gotify: cfg.gotify?.url ?? "",
     generic: cfg.generic?.url ?? "",
+  };
+}
+
+// Whether each channel's URL field starts revealed — true for channels that
+// already have a saved URL. New/unconfigured channels start hidden and the
+// toggle is what reveals them for editing.
+function revealedFromConfig(cfg: WebhooksResponse): Record<WebhookChannel, boolean> {
+  return {
+    discord: (cfg.discord?.url ?? "") !== "",
+    telegram: (cfg.telegram?.url ?? "") !== "",
+    gotify: (cfg.gotify?.url ?? "") !== "",
+    generic: (cfg.generic?.url ?? "") !== "",
   };
 }
 
@@ -173,7 +186,7 @@ function ToggleSwitch({
       onClick={onChange}
       disabled={disabled}
       className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-[var(--duration-fast)] ease-out disabled:cursor-not-allowed disabled:opacity-50 ${
-        checked ? "border-accent/40 bg-accent" : "border-border bg-panel-bg"
+        checked ? "border-accent/40 bg-accent" : "border-[#4a4d57] bg-[#3a3d46]"
       }`}
     >
       <span
@@ -252,6 +265,7 @@ export function AlertsWebhooksTab() {
   // Channel config: server-canonical state + the editable draft.
   const [config, setConfig] = useState<WebhooksResponse | null>(null);
   const [drafts, setDrafts] = useState<Record<WebhookChannel, string>>(EMPTY_DRAFTS);
+  const [revealed, setRevealed] = useState<Record<WebhookChannel, boolean>>(ALL_HIDDEN);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -291,6 +305,7 @@ export function AlertsWebhooksTab() {
         setConfig(cfg);
         const next = draftsFromConfig(cfg);
         setDrafts(next);
+        setRevealed(revealedFromConfig(cfg));
         lastValueRef.current = { ...next };
       })
       .catch((err: unknown) => {
@@ -338,13 +353,21 @@ export function AlertsWebhooksTab() {
   }
 
   function handleToggle(id: WebhookChannel) {
-    setDrafts((prev) => {
-      const current = prev[id];
-      if (current.trim() !== "") {
-        lastValueRef.current[id] = current;
-        return { ...prev, [id]: "" };
-      }
-      return { ...prev, [id]: lastValueRef.current[id] ?? "" };
+    setRevealed((prev) => {
+      const next = !prev[id];
+      setDrafts((prevDrafts) => {
+        const current = prevDrafts[id];
+        if (!next) {
+          // Turning off: stash whatever was typed so turning back on restores
+          // it, then clear the draft — an empty draft is the delete signal.
+          if (current.trim() !== "") lastValueRef.current[id] = current;
+          return { ...prevDrafts, [id]: "" };
+        }
+        // Turning on: restore the last-known value if there is one, otherwise
+        // just open the field empty and ready to type into.
+        return { ...prevDrafts, [id]: lastValueRef.current[id] ?? "" };
+      });
+      return { ...prev, [id]: next };
     });
     setSaved(false);
   }
@@ -364,6 +387,7 @@ export function AlertsWebhooksTab() {
       setConfig(fresh);
       const next = draftsFromConfig(fresh);
       setDrafts(next);
+      setRevealed(revealedFromConfig(fresh));
       lastValueRef.current = { ...next };
       setSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -437,7 +461,7 @@ export function AlertsWebhooksTab() {
             {CHANNEL_ORDER.map((id) => {
               const meta = CHANNEL_META[id];
               const channelConfig = config[id];
-              const enabled = drafts[id].trim() !== "";
+              const enabled = revealed[id];
               const savedUrl = channelConfig?.url ?? "";
               const isDirty = drafts[id] !== savedUrl;
               const inputId = `${idPrefix}-${id}-url`;

@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import fastifyCompress from "@fastify/compress";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
@@ -46,19 +45,24 @@ await app.register(fastifyCookie);
 // Ported from main.go setupRoutes (~L1904-1910): permissive CORS for
 // homelab use (AllowedOrigins ["*"], AllowedMethods
 // GET/POST/PUT/DELETE/OPTIONS, AllowedHeaders ["*"], AllowCredentials
-// false), plus gzip compression matching gzipMiddleware (~L1955-1988) —
-// @fastify/compress negotiates on Accept-Encoding like Fastify's own
-// default and never touches a hijacked WebSocket upgrade (those never run
-// through the normal onSend lifecycle @fastify/compress hooks into), so no
-// explicit "/ws"/"/api/public/ws" skip is needed here the way Go's
-// handwritten gzipMiddleware requires one.
+// false).
+//
+// gzip compression (matching gzipMiddleware, ~L1955-1988) was tried via
+// @fastify/compress with { global: true }, but it hits a known unresolved
+// upstream bug (fastify/fastify#6017): the response stream closes
+// prematurely for payloads over ~16KB whenever the client sends
+// Accept-Encoding: gzip — which every real browser does by default. That
+// turned GET /api/services (routinely >16KB once a few services/history
+// rows exist) into a 200 OK with an empty body, silently crashing the
+// client on the resulting `undefined`. Dropped entirely rather than chase
+// an upstream bug closed by the Fastify maintainers as "not planned" —
+// uncompressed JSON is a fine tradeoff for a self-hosted homelab dashboard.
 await app.register(fastifyCors, {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: "*",
   credentials: false,
 });
-await app.register(fastifyCompress, { global: true });
 
 // Ported from main.go's middleware chain order: security headers, then
 // auth. Registered before route registration so both hooks apply to every
