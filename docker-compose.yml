@@ -1,0 +1,54 @@
+services:
+  lantern:
+    build: .
+    ports:
+      - "7654:7654"
+    environment:
+      - LANTERN_AUTH_USER=admin
+      - LANTERN_AUTH_PASS=changeme123
+      - LANTERN_DOCKER_DISCOVERY=true
+      - LANTERN_DOCKER_POLL_SECONDS=15
+    volumes:
+      - lantern-data:/data
+      # Read-only: lets Docker discovery enumerate/poll containers on this
+      # host, same as the original Go app's intended deployment.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - test-web
+      - test-cache
+      - test-degraded
+      - test-down
+
+  # --- test services below: exist only so Docker discovery has something
+  # real to find, exercising all three container-derived statuses. ---
+
+  test-web:
+    image: nginx:alpine
+    container_name: lantern-test-web
+
+  test-cache:
+    image: redis:alpine
+    container_name: lantern-test-cache
+
+  # No healthcheck failing on purpose -> reports Docker health "unhealthy"
+  # -> dockerStatusFor classifies this as "degraded".
+  test-degraded:
+    image: busybox
+    container_name: lantern-test-degraded
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD-SHELL", "exit 1"]
+      interval: 5s
+      timeout: 2s
+      retries: 1
+      start_period: 1s
+
+  # Exits immediately and is not restarted -> state "exited" -> "down".
+  test-down:
+    image: busybox
+    container_name: lantern-test-down
+    command: sh -c "exit 1"
+    restart: "no"
+
+volumes:
+  lantern-data:
