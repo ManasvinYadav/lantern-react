@@ -1,0 +1,398 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   Lantern design system — glassmorphic reskin
+   Originally a faithful port of the legacy Go dashboard's flat-dark CSS
+   custom properties. Per the current design directive this is now a
+   glassmorphic visual language (frosted translucent panels, backdrop blur,
+   glowing borders, multi-tone gradient backgrounds) instead — but every
+   token NAME below is unchanged from that original port, so every component
+   that already reads e.g. --color-panel-bg or the bg-panel-bg/border-border
+   Tailwind utilities keeps working untouched. Only token VALUES and a new
+   set of .glass* utility classes changed. See the "Glass utilities" comment
+   block further down for the reusable building blocks (.glass, .glass-strong,
+   .glass-subtle) every frosted surface should build on.
+
+   Every token below is declared under Tailwind v4's @theme directive, which
+   compiles to REAL runtime CSS custom properties on :root/:host (not values
+   baked into the generated utility classes) — e.g. --color-accent stays a
+   live variable that `.bg-accent` reads via var(--color-accent), so the
+   accent-color picker (theme.ts) can repoint it at runtime with a plain
+   `style.setProperty` call and every utility using it updates immediately.
+   ========================================================================== */
+
+@theme {
+  /* ---- Color ----
+     --color-bg stays a solid, valid <color> (not a gradient) on purpose:
+     it still feeds the Tailwind `bg-bg`/`border-bg`/etc. utilities used
+     verbatim elsewhere (e.g. LoginForm's input fields), and those utilities
+     set `background-color`/`border-color`, properties that only accept a
+     <color> — a gradient there would be silently invalid and drop to
+     transparent. The actual multi-tone gradient richness lives in the new
+     --gradient-bg token below (a plain custom property, not a --color-*
+     one), layered onto `body` as background-image alongside --color-bg as
+     the solid background-color fallback. See the body rule in @layer base. */
+  --color-bg: #05070d;
+  --color-panel-bg: rgba(255, 255, 255, 0.06);
+  --color-panel-hover: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-focus: rgba(255, 255, 255, 0.28);
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #475569;
+
+  --color-accent: #10b981;
+  --color-accent-glow: rgba(16, 185, 129, 0.25);
+  --color-accent-bg: rgba(16, 185, 129, 0.1);
+
+  /* "up" tracks the accent — the accent picker doubles as the "all systems
+     up" status color, exactly as in the legacy dashboard. */
+  --color-up: var(--color-accent);
+  --color-up-bg: var(--color-accent-bg);
+  --color-up-glow: var(--color-accent-glow);
+
+  --color-down: #f43f5e;
+  --color-down-bg: rgba(244, 63, 94, 0.1);
+  --color-down-glow: rgba(244, 63, 94, 0.25);
+
+  --color-degraded: #f59e0b;
+  --color-degraded-bg: rgba(245, 158, 11, 0.1);
+  --color-degraded-glow: rgba(245, 158, 11, 0.25);
+
+  --color-maint: #8b5cf6;
+  --color-maint-bg: rgba(139, 92, 246, 0.1);
+  --color-maint-glow: rgba(139, 92, 246, 0.25);
+
+  --color-unknown: #64748b;
+  --color-unknown-bg: rgba(100, 116, 139, 0.1);
+  --color-unknown-glow: rgba(100, 116, 139, 0.25);
+
+  /* ---- Typography ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* ---- Elevation (neutral, independent of accent) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.45);
+
+  /* ---- Motion curve ----
+     Recognized Tailwind namespace: overriding it repoints the built-in
+     `ease-out` utility at the app's curve, so any component using
+     `transition ease-out` gets the design system's easing for free instead
+     of Tailwind's default cubic-bezier(0,0,.2,1). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Named animations ----
+     Keyframe bodies live below (@theme only accepts property:value pairs,
+     not @keyframes). `pulse` deliberately overrides Tailwind's built-in
+     animate-pulse (a plain fade) so the header loading dot — and anything
+     else reaching for the ordinary `animate-pulse` utility — gets the
+     design system's scale+fade pulse instead. */
+  --animate-pulse: pulse 2s ease infinite;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  --animate-live-update-flash: live-update-flash 1.1s var(--ease-out);
+  --animate-beat-pulse: beat-pulse var(--duration-slow) var(--ease-out);
+  --animate-shimmer: shimmer 1.5s ease infinite;
+  --animate-banner-in: banner-in var(--duration-base) var(--ease-out);
+}
+
+/* -----------------------------------------------------------------------
+   Legacy bare-name aliases.
+   The shared design-system spec (and the legacy CSS it was extracted from)
+   refers to colors as --up/--down/--bg/--panel-bg/etc, without the Tailwind
+   "color-" namespace prefix @theme requires. These forward to the real
+   tokens above so both spellings resolve to the same live value — safe
+   because var() resolves against the final cascaded value at use time, so
+   it doesn't matter that these aliases are declared before the theme
+   overrides and runtime accent override that change what they point to.
+   ----------------------------------------------------------------------- */
+:root {
+  /* Multi-tone page-background gradient (see the @theme comment above for
+     why this is a separate token from --color-bg rather than a redefinition
+     of it). Layered as `body`'s background-image, with --color-bg painted
+     underneath as the solid non-transparent fallback — see @layer base.
+     Doubles as the "no-JS/reduced-motion fallback" for a future animated
+     background layer (a React Bits background component mounted behind the
+     app), so this is deliberately a static gradient, not an animation. */
+  --gradient-bg:
+    radial-gradient(ellipse 90% 55% at 15% -15%, var(--color-accent-glow), transparent 60%),
+    radial-gradient(ellipse 75% 55% at 105% 0%, rgba(56, 132, 255, 0.14), transparent 60%),
+    radial-gradient(ellipse 65% 60% at 50% 115%, rgba(139, 92, 246, 0.12), transparent 60%),
+    linear-gradient(165deg, #10131f 0%, #090b13 42%, #05070d 100%);
+
+  --bg: var(--color-bg);
+  --panel-bg: var(--color-panel-bg);
+  --panel-hover: var(--color-panel-hover);
+  --border: var(--color-border);
+  --border-focus: var(--color-border-focus);
+
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+
+  --accent: var(--color-accent);
+  --accent-glow: var(--color-accent-glow);
+  --accent-bg: var(--color-accent-bg);
+
+  --up: var(--color-up);
+  --up-bg: var(--color-up-bg);
+  --up-glow: var(--color-up-glow);
+  --down: var(--color-down);
+  --down-bg: var(--color-down-bg);
+  --down-glow: var(--color-down-glow);
+  --degraded: var(--color-degraded);
+  --degraded-bg: var(--color-degraded-bg);
+  --degraded-glow: var(--color-degraded-glow);
+  --maint: var(--color-maint);
+  --maint-bg: var(--color-maint-bg);
+  --maint-glow: var(--color-maint-glow);
+  --unknown: var(--color-unknown);
+  --unknown-bg: var(--color-unknown-bg);
+  --unknown-glow: var(--color-unknown-glow);
+
+  /* Motion durations — not a Tailwind theme namespace (v4 accepts arbitrary
+     numeric duration-* utilities natively), kept as plain custom properties
+     for the @keyframes/--animate-* declarations above and for arbitrary-value
+     use like duration-[var(--duration-base)]. */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* =============================================================================
+   Theme variants
+   Selected by theme.ts's applyTheme(), which sets data-theme on <html> and
+   persists the choice to localStorage — read back synchronously by the
+   inline bootstrap script in index.html before React mounts.
+   ========================================================================== */
+
+/* Midnight: ultra-deep-black glass — darker background/panels only, glass
+   panels read as barely-there frost floating in a near-void. Status colors,
+   accent, text, and border-focus are unchanged from the dark theme. */
+:root[data-theme="midnight"] {
+  --color-bg: #000000;
+  --gradient-bg:
+    radial-gradient(ellipse 70% 50% at 20% -10%, color-mix(in srgb, var(--color-accent-glow) 55%, transparent), transparent 65%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(139, 92, 246, 0.08), transparent 65%),
+    linear-gradient(180deg, #050505 0%, #000000 60%);
+  --color-panel-bg: rgba(255, 255, 255, 0.045);
+  --color-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Light: frosted-white glass on light. Full palette swap, including every
+   status color. Light-mode status colors are distinct hex values tuned for
+   contrast on a light background, not derived from the dark palette — and
+   --color-accent is deliberately NOT overridden here (matches the legacy
+   stylesheet), so .btn.primary etc. keep showing the raw accent color in
+   light mode unless the user has picked a custom accent, while status dots
+   use the light-tuned --color-up. Border tokens flip polarity from "low-
+   opacity white" (dark/midnight) to "low-opacity black" — a light glass
+   edge is a soft dark hairline, not a bright one. */
+:root[data-theme="light"] {
+  --color-bg: #eef1f7;
+  --gradient-bg:
+    radial-gradient(ellipse 80% 55% at 15% -10%, color-mix(in srgb, var(--color-accent-glow) 70%, transparent), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 105% 0%, rgba(59, 130, 246, 0.1), transparent 60%),
+    radial-gradient(ellipse 60% 60% at 50% 115%, rgba(236, 72, 153, 0.08), transparent 60%),
+    linear-gradient(165deg, #ffffff 0%, #eef2f9 45%, #e6ebf5 100%);
+  --color-panel-bg: rgba(255, 255, 255, 0.55);
+  --color-panel-hover: rgba(255, 255, 255, 0.72);
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border-focus: rgba(15, 23, 42, 0.18);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+
+  --color-up: #059669;
+  --color-up-bg: rgba(5, 150, 105, 0.12);
+  --color-up-glow: rgba(5, 150, 105, 0.2);
+
+  --color-down: #e11d48;
+  --color-down-bg: rgba(225, 29, 72, 0.12);
+  --color-down-glow: rgba(225, 29, 72, 0.2);
+
+  --color-degraded: #d97706;
+  --color-degraded-bg: rgba(217, 119, 6, 0.12);
+  --color-degraded-glow: rgba(217, 119, 6, 0.2);
+
+  --color-maint: #7c3aed;
+  --color-maint-bg: rgba(124, 58, 237, 0.12);
+  --color-maint-glow: rgba(124, 58, 237, 0.2);
+
+  --color-unknown: #64748b;
+  --color-unknown-bg: rgba(100, 116, 139, 0.12);
+  --color-unknown-glow: rgba(100, 116, 139, 0.2);
+
+  color-scheme: light;
+}
+
+/* =============================================================================
+   Keyframes
+   ========================================================================== */
+
+/* Header loading-dot pulse (see --animate-pulse above for why this
+   intentionally shadows Tailwind's built-in animate-pulse). */
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Status-dot halo ring (service-card status indicator). */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  60% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+/* One-shot ring flash a service card plays when a WebSocket status_update
+   lands on it, so the dashboard visibly "comes alive" instead of updating
+   silently. Consumers set --live-glow (per current status color) on the
+   card element before toggling the animate-live-update-flash class, then
+   remove the class after ~1.1s so it can replay on the next update. */
+@keyframes live-update-flash {
+  0% { box-shadow: 0 0 0 0 var(--live-glow, var(--color-accent-glow)); }
+  35% { box-shadow: 0 0 0 7px var(--live-glow, var(--color-accent-glow)); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* One-shot pulse on a newly appended heartbeat block in a live trend bar. */
+@keyframes beat-pulse {
+  from { transform: scaleY(0.3); opacity: 0.3; filter: brightness(1.6); }
+  to { transform: scaleY(1); opacity: 1; filter: brightness(1); }
+}
+
+/* Skeleton loading placeholder shimmer. */
+@keyframes shimmer {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.3; }
+}
+
+/* Connection-status banner entrance (never shown for a healthy connection). */
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* No global @media (max-width: 640px) block here on purpose: every rule the
+   legacy stylesheet's mobile breakpoint touches (.app-container, .header,
+   .metrics-grid, .drawer, ...) belongs to a specific component, not this
+   file. Component authors should use Tailwind's `max-sm:` variant, which
+   matches the same 640px cutoff (Tailwind's default `sm` breakpoint). */
+
+/* =============================================================================
+   Glass utilities
+   The shared building blocks every frosted surface (login card, header bar,
+   service cards, drawers, modals) should compose from, instead of each
+   component hand-rolling its own blur/border/shadow combo. Each one layers:
+   backdrop blur + saturate (the frost) + the translucent panel-bg token
+   (the tint) + a soft 1px translucent border (the glass edge highlight) +
+   an ambient shadow, optionally glowing with the current accent color so
+   the glow follows the user's accent pick (theme.ts) automatically. Pick
+   by how much visual weight the surface should carry:
+
+     .glass         — the default frosted panel. Cards, panels, the main
+                       building block for most surfaces.
+     .glass-strong  — heavier frost + brighter edge + bigger glow, for
+                       surfaces that need to visually anchor attention above
+                       the rest of the app (login card, modals, drawers).
+     .glass-subtle  — a light touch of frost for large ambient surfaces
+                       (header bar, backdrops behind dense content) where
+                       full blur/glow would be heavy-handed.
+
+   `-webkit-backdrop-filter` is included alongside the unprefixed property
+   for Safari. Each already has border-radius baked in so consumers don't
+   also need a `rounded-*` utility.
+   ========================================================================== */
+@layer components {
+  .glass {
+    background: var(--color-panel-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: var(--shadow-lg), 0 0 40px -12px var(--color-accent-glow);
+  }
+
+  .glass-strong {
+    background: var(--color-panel-hover);
+    border: 1px solid var(--color-border-focus);
+    border-radius: var(--radius-lg);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    backdrop-filter: blur(32px) saturate(180%);
+    box-shadow: var(--shadow-xl), 0 0 64px -8px var(--color-accent-glow);
+  }
+
+  .glass-subtle {
+    background: var(--color-panel-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    backdrop-filter: blur(10px) saturate(120%);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* =============================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    /* --color-bg is the solid, non-transparent fallback (paints first,
+       covers the full viewport even before --gradient-bg's image layer
+       paints — never a flash of unstyled/broken background); --gradient-bg
+       is the rich multi-tone image layered on top of it. See the @theme and
+       --gradient-bg comments above for why these are two separate tokens
+       rather than one token holding a gradient value. */
+    background-color: var(--color-bg);
+    background-image: var(--gradient-bg);
+    background-attachment: fixed;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #ffffff;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+}

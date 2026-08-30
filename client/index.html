@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lantern</title>
+    <script>
+      // Runs before the React bundle loads so the page never paints with the
+      // wrong theme/accent and then snaps to the stored one. Kept in sync
+      // with theme.ts's applyTheme/applyAccent by hand — this can't import
+      // that module, it has to run synchronously pre-bundle.
+      (function () {
+        try {
+          var theme = localStorage.getItem('lantern_theme');
+          if (theme !== 'midnight' && theme !== 'light') theme = 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+
+          var accent = localStorage.getItem('lantern_accent') || '#10b981';
+          var style = document.documentElement.style;
+          style.setProperty('--color-accent', accent);
+          style.setProperty('--color-accent-glow', accent + '40');
+          style.setProperty('--color-accent-bg', accent + '20');
+          style.setProperty('--color-up', accent);
+          style.setProperty('--color-up-glow', accent + '40');
+          style.setProperty('--color-up-bg', accent + '20');
+        } catch (e) {
+          // localStorage can throw (private browsing, disabled storage) —
+          // fall back to the dark theme + default accent rather than leaving
+          // the page unstyled.
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
